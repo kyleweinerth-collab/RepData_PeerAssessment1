@@ -1,0 +1,199 @@
+---
+title: "Reproducible Research: Peer Assessment 1"
+output:
+  html_document:
+    keep_md: yes
+  word_document: default
+  pdf_document: default
+---
+
+
+
+## Loading and preprocessing the data
+
+
+```r
+activity <- read.csv("activity.csv")
+activity$date <- as.Date(activity$date)
+```
+
+## What is mean total number of steps taken per day?
+
+
+```r
+steps_per_day <- tapply(activity$steps, activity$date, sum, na.rm = TRUE)
+```
+
+
+```r
+hist(steps_per_day,
+     main = "Total Steps per Day",
+     xlab = "Steps",
+     col = "steelblue")
+```
+
+![](figure/unnamed-chunk-3-1.png)<!-- -->
+
+
+```r
+mean_steps <- mean(steps_per_day, na.rm = TRUE)
+median_steps <- median(steps_per_day, na.rm = TRUE)
+mean_steps
+```
+
+```
+## [1] 9354.23
+```
+
+```r
+median_steps
+```
+
+```
+## [1] 10395
+```
+
+## What is the average daily activity pattern?
+
+
+```r
+avg_interval <- tapply(activity$steps, activity$interval, mean, na.rm = TRUE)
+```
+
+
+```r
+plot(names(avg_interval), avg_interval,
+     type = "l",
+     xlab = "5-minute interval",
+     ylab = "Average number of steps",
+     main = "Average Daily Activity Pattern")
+```
+
+![](figure/unnamed-chunk-6-1.png)<!-- -->
+
+
+```r
+max_interval <- names(avg_interval)[which.max(avg_interval)]
+max_interval
+```
+
+```
+## [1] "835"
+```
+
+## Imputing missing values
+
+### Total missing values
+
+
+```r
+total_NA <- sum(is.na(activity$steps))
+total_NA
+```
+
+```
+## [1] 2304
+```
+
+### Explanation
+The missing values in the dataset were imputed using the mean number of steps for each 5‑minute interval. This approach preserves the overall daily activity pattern because it replaces missing values with typical behavior for that specific interval rather than using a single global mean.
+
+### Create imputed dataset
+
+
+```r
+interval_means <- avg_interval
+activity_imputed <- activity
+
+interval_df <- data.frame(
+  interval = as.numeric(names(interval_means)),
+  mean_steps = as.numeric(interval_means)
+)
+
+activity_imputed <- merge(activity_imputed, interval_df, by = "interval", all.x = TRUE)
+
+na_idx <- is.na(activity_imputed$steps)
+activity_imputed$steps[na_idx] <- activity_imputed$mean_steps[na_idx]
+
+activity_imputed <- activity_imputed[
+  order(activity_imputed$date, activity_imputed$interval),
+  c("steps", "date", "interval")
+]
+```
+
+### Histogram after imputation
+
+
+```r
+steps_per_day_imp <- tapply(activity_imputed$steps, activity_imputed$date, sum)
+
+hist(steps_per_day_imp,
+     main = "Total Steps per Day (Imputed)",
+     xlab = "Steps",
+     col = "darkgreen")
+```
+
+![](figure/unnamed-chunk-10-1.png)<!-- -->
+
+### Mean and median after imputation
+
+
+```r
+mean_steps_imp <- mean(steps_per_day_imp)
+median_steps_imp <- median(steps_per_day_imp)
+mean_steps_imp
+```
+
+```
+## [1] 10766.19
+```
+
+```r
+median_steps_imp
+```
+
+```
+## [1] 10766.19
+```
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+
+```r
+day_names <- weekdays(activity_imputed$date)
+day_type <- ifelse(day_names %in% c("Saturday", "Sunday"), "weekend", "weekday")
+activity_imputed$day_type <- factor(day_type)
+```
+
+
+```r
+avg_weekday <- tapply(activity_imputed$steps[activity_imputed$day_type == "weekday"],
+                      activity_imputed$interval[activity_imputed$day_type == "weekday"],
+                      mean)
+
+avg_weekend <- tapply(activity_imputed$steps[activity_imputed$day_type == "weekend"],
+                      activity_imputed$interval[activity_imputed$day_type == "weekend"],
+                      mean)
+```
+
+
+```r
+par(mfrow = c(2,1))
+
+plot(names(avg_weekday), avg_weekday,
+     type = "l",
+     main = "Weekday Activity Pattern",
+     xlab = "Interval",
+     ylab = "Average Steps")
+
+plot(names(avg_weekend), avg_weekend,
+     type = "l",
+     main = "Weekend Activity Pattern",
+     xlab = "Interval",
+     ylab = "Average Steps")
+```
+
+![](figure/unnamed-chunk-14-1.png)<!-- -->
+
+### Interpretation
+Weekdays typically show a sharper morning peak, while weekend activity is more evenly distributed throughout the day.
